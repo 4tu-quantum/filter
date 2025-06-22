@@ -7,6 +7,7 @@ Created on Thu May 29 10:22:49 2025
 """
 import math
 from utilis import sigma, g
+from heat_balance_jacobian import *
 
 ########## Model developed by DA Quan ###############
 
@@ -23,6 +24,12 @@ def k_air(T):
     """
     return(0.00031847*T**0.7775) # W / (m K)
 
+def dk_dT(T):
+    """
+    Returns derivative of air conductivity at temperature T [K]
+    """
+    return (0.000247610425*T**-0.2225)
+
 def Cp_air(T):
     """
     Returns specific heat capacity at constant pressure of air at temperature T [K]
@@ -33,7 +40,13 @@ def nu_air(T):
     """
     Returns kinematic viscosity of air at temperature T [K]
     """
-    return((0.0000644*T**2+0.0631*T-9.54)*10**-6) # 
+    return((0.0000644*T**2+0.0631*T-9.54)*10**-6) #
+
+def dnu_dT(T):
+    """
+    Returns derivative of kinematic viscosity of air at temperature T [K]
+    """
+    return ((0.0001288*T+0.0631)*10**-6)
 
 def heat_balance(Tw1i, Tw1o, Tw2i, Tw2o, Tg, Tair, D1, t1, D2, t2, z, k1, k2, epsi1, epsi2):
     """
@@ -136,7 +149,7 @@ def q_conv_in(Tg, Tair, Tw1i, D, z):
     Pr = 0.685 # Prandtl number
     T_ave = (Tg + Tw1i) / 2 # average air temperature at which evaluate fluid properties
     u = (2*g*z*(Tg/Tair-1))**(1/2) #flow velocity
-    Re = u*D/nu_air(Tg) # Reynolds number
+    Re = u*D/nu_air(T_ave) # Reynolds number
     Nu = 0.023*(Re**0.8)*(Pr**0.3) # Nusselt number
     return (k_air(T_ave)/D) * Nu * (Tg - Tw1i)
 
@@ -158,7 +171,7 @@ def Q_cond(Twi, Two, Di, Do, k, z):
 def Q_conv_annulus(Tw1, Tw2, D1, D2, z):
     """
     This function was not included in the original code, it has been written to 
-    model the heat transfer in the annualr cavity between the inner and the outer
+    model the heat transfer in the annular cavity between the inner and the outer
     cylinder. The heat transfer relation herein used come from 
     JP Holman, Heat Transfer, 10th edition
     
@@ -206,9 +219,9 @@ def Q_rad_annulus(Tw1, Tw2, D1, D2, epsi1, epsi2, z):
     D2 : float
         inner diameter of the outer cylinder [m].
     epsi1 : float
-        emissivity of the inner wall
+        emissivity of the inner wall [-].
     epsi2 : float
-        emissivity of the outer wall  
+        emissivity of the outer wall [-]
     z : float
         height of the cylinder [m].
     """
@@ -216,19 +229,30 @@ def Q_rad_annulus(Tw1, Tw2, D1, D2, epsi1, epsi2, z):
 
 def q_rad_out(Two, Ta, epsi0):
     """
-    Return heat flux [W/m^2] due to radiative heat transfer from inner (outer) 
-    cylinder and the air in the annular cavity (air outside)
+    Return heat flux [W/m^2] due to radiative heat transfer from outer
+    cylinder and the air outside
     Two : float
-        temperature of the outer wall of the cylinder
+        temperature of the outer wall of the cylinder [K].
     Ta : float
-        air temperature
+        air temperature [K].
+    epsi0 : float
+        emissivity of the cylinder [-].
     """
     return sigma*epsi0*(Two**4 - Ta**4)
     
 def q_conv_out(Tw, Ta, D, z):
     """
-    Return heat flux [W/m^2] due to convective heat transfer from inner (outer)
-    cylinder and the air in the annular cavity (air outside)
+    Return heat flux [W/m^2] due to convective heat transfer from outer
+    cylinder and the air outside
+    
+    Tw : float
+        temperature of the wall of the cylinder [K].
+    Ta : float
+        outside air temperaure [K].
+    D : float
+        diameter of the outer cylinder [m].
+    z : float
+        height of the cylinder [m].
     """
     T_ave = (Tw + Ta) / 2 # average air temperature at which evaluate fluid properties
     
@@ -236,4 +260,4 @@ def q_conv_out(Tw, Ta, D, z):
     Pr = 0.685 # Prandtl number
     Gr = g*beta*(Tw - Ta)*z**3/(nu_air(T_ave)**2) #Grashoff number
     Nu = 0.59*(Gr*Pr)**0.25
-    return k_air(T_ave) / D * Nu * (Ta - Tw)
+    return k_air(T_ave) / D * Nu * (Tw - Ta)
